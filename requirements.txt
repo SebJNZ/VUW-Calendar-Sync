@@ -1,0 +1,4 @@
+caldav
+icalendar
+requests
+python-dotenv
