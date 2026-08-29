@@ -69,9 +69,9 @@ If you want to receive emails about changes:
 `python3 main.py`
 
 # Run the script on a schedule
-To run the script automatically, you will need some form of scheduler. On Linux, you can use a crontab. Example crontab for 7am everyday:
+To run the script automatically, you will need some form of scheduler. On Linux, you can use a crontab. Example crontab for 7am everyday (using the ENV):
 
-`0 7 * * * /usr/bin/python3 /home/user/calendar-syncer/main.py`
+`0 7 * * * /home/user/calendar-syncer/env/bin/python3 /home/user/calendar-syncer/main.py`
 
 # Support
 Currently VUW Calendar Sync only supports the ECS calendar.
