@@ -13,6 +13,7 @@ RADICALE_CALENDAR_URL = os.getenv("RADICALE_CALENDAR_URL") # e.g: http://localho
 RADICALE_USERNAME = os.getenv("RADICALE_USERNAME")
 RADICALE_PASSWORD = os.getenv("RADICALE_PASSWORD")
 COMPARABLE_FIELDS = ["SUMMARY", "URL", "DESCRIPTION"]
+DELETION_DATA_FIELDS = ["SUMMARY", "DTSTART", "UID", "URL", "DESCRIPTION"]
 
 TIMEZONE = ZoneInfo("Pacific/Auckland")
 
@@ -171,7 +172,7 @@ def scanForUpdates(radicaleCalendar, ecsUIDs, indices, comparableEvents, notific
 					radicaleData["DATE"] = radicaleData["DATE"].astimezone(TIMEZONE)
 	
 				needsSaving = False
-
+    
 				for field in COMPARABLE_FIELDS:
 					radClean = radicaleData[field].replace('\\', '')
 					ecsClean = ecsData[field].replace('\\', '')
@@ -236,11 +237,27 @@ def scanForUpdates(radicaleCalendar, ecsUIDs, indices, comparableEvents, notific
 				if needsSaving:
 					event.save()
 		else:
-			print("Removing Event: ", uid)
+			print("Removing Event: ", event.icalendar_component.get("summary").to_ical().decode('utf-8'))
+			
+			fieldData = {"TITLE": event.icalendar_component.get("summary").to_ical().decode('utf-8'), "DATA": []}
+   
+			for field in DELETION_DATA_FIELDS:
+				if field in event.icalendar_component:
+					data = event.icalendar_component.get(field).to_ical().decode('utf-8')
+					if field == "DTSTART":
+						date_obj = datetime.strptime(data, "%Y%m%dT%H%M%S")
+						data = date_obj.strftime("%b %d, %-I:%M %p")
+     
+					fieldData["DATA"].append({field: data})
+
+			notificationData["REMOVED"].append(fieldData)
+     
 			event.delete()
 
 def main():
+	print("--VUW Calendar Sync--\nLoading Radicale Calendar...")
 	radicaleCalendar = loadRadicaleCal()
+	print("Loaded.")
 	ecsUIDs = []
 	indices = []
 	comparableEvents = []
@@ -250,15 +267,22 @@ def main():
 			"UID": [],
 			"NEW_DATA": [],
 			"OLD_DATA": []
-		}
+		},
+		"REMOVED": []
 	}
 
-	#clearRadicaleCalendarData(radicaleCalendar)
+	#clearRadicaleCalendarData(radicaleCalendar) # Uncomment me and comment the walk calendar function call out.
+	print("Walking through calendar data...")
 	radicaleCalendar = walkCalendarData(radicaleCalendar, ecsUIDs, indices, comparableEvents, notificationData)
+	print("Done.\nComparing data to the ECS Calendar.")
 	scanForUpdates(radicaleCalendar, ecsUIDs, indices, comparableEvents, notificationData) # Scans and fixes data
+	print("Done.")
+ 
 	if USEMAILER:
-		if notificationData["NEW"] or notificationData["UPDATES"]["UID"]:
+		if notificationData["NEW"] or notificationData["UPDATES"]["UID"] or notificationData["REMOVED"]:
+			print("Sending email notifications.")
 			mailer.emailer(notificationData)
+	print("--Finished--")
  
 if __name__ == "__main__":
 	main()

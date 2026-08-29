@@ -1,3 +1,4 @@
+# Copyright 2026 - Seb Johnstone @SebJNZ
 import smtplib, os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -104,13 +105,43 @@ UPDATED EVENT: {new_data['EVENT_TITLE']}
         <span class="new-data">{new_str}</span>
     </p>
 """             
-                text_draft += f"{feature}:\n  OLD: {old_str}\n  NEW: {new_str}\n\n"
+                text_draft += f"{feature}:\nOLD: {old_str}\nNEW: {new_str}\n\n"
                 
             html_draft += """\n</div>\n"""
 
             updated_html += html_draft
             updated_text += text_draft
             
+    deleted_html = ""
+    deleted_text = ""
+    deleted_event = False
+    if notificationData["REMOVED"]:
+        deleted_event = True
+        
+        for event in notificationData["REMOVED"]:
+            html_draft = f"""<div class="event-card">
+    <p class="event-title">{event["TITLE"]}</p>
+    
+"""
+            text_draft = f"""
+==================================================
+DELETED EVENT: {event["TITLE"]}
+==================================================
+"""
+            for features in event["DATA"]:
+                for feature, value in features.items():                  
+                    html_draft += f"""
+    <p class="change-label">{feature}</p>
+    <p class="change-data">
+        <span class="old-data">{value}</span>
+    </p>
+"""
+                    text_draft += f"{feature}: {value}\n"
+                
+            html_draft += """\n</div>\n"""
+            text_draft += "\n"
+            deleted_html += html_draft
+            deleted_text += text_draft
             
     text = """Hi,
 There have been some calendar updates.
@@ -183,6 +214,17 @@ There have been some calendar updates.
 {updated_text}
 """
 
+    if deleted_event:
+        html += f"""            <h4 style="margin: 24px 0 12px 0; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                Deleted Events
+            </h4>
+{deleted_html}        
+"""
+        text += f"""Deleted Events:
+{deleted_text}
+"""
+        
+
     html += """            <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0 15px 0;">
             <p style="color:#888; font-size: 0.85em; text-align: center;">
                 This is an automated notification from your <a href="https://github.com/SebJNZ/VUW-Calendar-Sync">VUW Calendar Sync</a> instance.
@@ -198,14 +240,7 @@ There have been some calendar updates.
 
     email.attach(text_body)
     email.attach(html_body)
-    
-    with open("email.html", 'w') as html_file:
-        html_file.write(html)
-        
-    with open("email.txt", 'w') as text_file:
-        text_file.write(text)
 
     with smtplib.SMTP_SSL(os.getenv("SMTP_SERVER"), os.getenv("SMTP_PORT")) as s:
         s.login(os.getenv("SMTP_EMAIL_ADDRESS"), os.getenv("SMTP_EMAIL_PASSWORD"))
         s.send_message(email)
-    
